@@ -1,4 +1,4 @@
-FROM openshift/base-centos7
+FROM rhscl/s2i-httpd-24-rhel7
 
 # This image provides an Apache+PHP environment for running PHP
 # applications.
@@ -15,18 +15,21 @@ LABEL io.k8s.description="Platform for building and running PHP 5.6 applications
       io.openshift.expose-services="8080:http" \
       io.openshift.tags="builder,php,php56,rh-php56"
 
+USER 0
+
 # Install Apache httpd and PHP
 RUN yum install -y \
-    https://www.softwarecollections.org/en/scls/rhscl/httpd24/epel-7-x86_64/download/rhscl-httpd24-epel-7-x86_64.noarch.rpm \
     https://www.softwarecollections.org/en/scls/rhscl/rh-php56/epel-7-x86_64/download/rhscl-rh-php56-epel-7-x86_64.noarch.rpm \
     https://www.softwarecollections.org/en/scls/remi/php56more/epel-7-x86_64/download/remi-php56more-epel-7-x86_64.noarch.rpm && \
-    yum install -y --setopt=tsflags=nodocs httpd24 \
+    yum install -y --setopt=tsflags=nodocs \
     rh-php56 rh-php56-php rh-php56-php-mysqlnd rh-php56-php-pgsql rh-php56-php-bcmath \
     rh-php56-php-gd rh-php56-php-intl rh-php56-php-ldap rh-php56-php-mbstring rh-php56-php-pdo \
     rh-php56-php-pecl-memcache rh-php56-php-process rh-php56-php-soap rh-php56-php-opcache rh-php56-php-xml \
     more-php56-php-pecl-imagick \
     rh-php56-php-pecl-xdebug && \
-    yum clean all -y
+    yum clean all -y && \
+    cp -f $STI_SCRIPTS_PATH/assemble $STI_SCRIPTS_PATH/assemble.httpd && \
+    cp -f $STI_SCRIPTS_PATH/run $STI_SCRIPTS_PATH/run.httpd
 
 # Copy the S2I scripts from the specific language image to $STI_SCRIPTS_PATH
 COPY ./s2i/bin/ $STI_SCRIPTS_PATH
@@ -38,12 +41,9 @@ COPY ./contrib/ /opt/app-root
 # In order to drop the root user, we have to make some directories world
 # writeable as OpenShift default security model is to run the container under
 # random UID.
-RUN sed -i -f /opt/app-root/etc/httpdconf.sed /opt/rh/httpd24/root/etc/httpd/conf/httpd.conf && \
-    sed -i '/php_value session.save_path/d' /opt/rh/httpd24/root/etc/httpd/conf.d/rh-php56-php.conf && \
-    head -n151 /opt/rh/httpd24/root/etc/httpd/conf/httpd.conf | tail -n1 | grep "AllowOverride All" || exit && \
+RUN sed -i '/php_value session.save_path/d' /opt/rh/httpd24/root/etc/httpd/conf.d/rh-php56-php.conf && \
     mkdir /tmp/sessions && \
     chmod -R a+rwx /etc/opt/rh/rh-php56 && \
-    chmod -R a+rwx /opt/rh/httpd24/root/var/run/httpd && \
     chmod -R a+rwx /tmp/sessions && \
     chown -R 1001:0 /opt/app-root /tmp/sessions
 

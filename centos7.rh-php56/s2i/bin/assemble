@@ -2,8 +2,7 @@
 
 set -e
 
-echo "---> Installing application source..."
-cp -Rf /tmp/src/. ./
+$STI_SCRIPTS_PATH/assemble.httpd
 
 if [ -f composer.json ]; then
   echo "Found 'composer.json', installing dependencies using composer.phar... "

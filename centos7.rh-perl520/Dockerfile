@@ -1,4 +1,4 @@
-FROM openshift/base-centos7
+FROM rhscl/s2i-httpd-24-rhel7
 
 # This image provides a Perl 5.20 environment you can use to run your Perl applications.
 MAINTAINER SoftwareCollections.org <sclorg@redhat.com>
@@ -13,12 +13,15 @@ LABEL io.k8s.description="Platform for building and running Perl 5.20 applicatio
       io.openshift.expose-services="8080:http" \
       io.openshift.tags="builder,perl,perl520"
 
+USER 0
+
 # TODO: Cleanup cpanp cache after cpanminus is installed?
 RUN yum install -y \
-    https://www.softwarecollections.org/en/scls/rhscl/httpd24/epel-7-x86_64/download/rhscl-httpd24-epel-7-x86_64.noarch.rpm \
     https://www.softwarecollections.org/en/scls/rhscl/rh-perl520/epel-7-x86_64/download/rhscl-rh-perl520-epel-7-x86_64.noarch.rpm && \
     yum install -y --setopt=tsflags=nodocs make rh-perl520 rh-perl520-devel rh-perl520-mod_perl rh-perl520-perl-CPAN && \
-    yum clean all
+    yum clean all && \
+    cp -f $STI_SCRIPTS_PATH/assemble $STI_SCRIPTS_PATH/assemble.httpd && \
+    cp -f $STI_SCRIPTS_PATH/run $STI_SCRIPTS_PATH/run.httpd
 
 # Copy the S2I scripts from the specific language image to $STI_SCRIPTS_PATH
 COPY ./s2i/bin/ $STI_SCRIPTS_PATH
@@ -26,14 +29,6 @@ COPY ./s2i/bin/ $STI_SCRIPTS_PATH
 # Each language image can have 'contrib' a directory with extra files needed to
 # run and build the applications.
 COPY ./contrib/ /opt/app-root
-
-# In order to drop the root user, we have to make some directories world
-# writeable as OpenShift default security model is to run the container under
-# random UID.
-RUN mkdir -p /opt/app-root/etc/httpd.d && \
-    sed -i -f /opt/app-root/etc/httpdconf.sed /opt/rh/httpd24/root/etc/httpd/conf/httpd.conf  && \
-    chmod -R og+rwx /opt/rh/httpd24/root/var/run/httpd /opt/app-root/etc/httpd.d && \
-    chown -R 1001:0 /opt/app-root
 
 USER 1001
 
